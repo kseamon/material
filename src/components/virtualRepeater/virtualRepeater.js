@@ -41,6 +41,7 @@ function VirtualRepeatContainerController($scope, $element, $attr, $window) {
 
   this.size = 0;
   this.scrollSize = 0;
+  this.scrollOffset = 0;
   this.repeater = null;
 
   this.scroller = $element[0].getElementsByClassName('md-virtual-repeat-scroller')[0];
@@ -50,6 +51,24 @@ function VirtualRepeatContainerController($scope, $element, $attr, $window) {
   $window.requestAnimationFrame(function() {
     this.size = $attr.mdHorizontal ? $element[0].clientWidth : $element[0].clientHeight;
   }.bind(this));
+
+  angular.element(this.scroller)
+      .on('scroll', function(evt) {console.log(evt);
+        if (!this.repeater) return;
+        // TODO: requestAnimationFrame
+        this.scrollOffset = $attr.mdHorizontal ?
+            this.scroller.scrollLeft : this.scroller.scrollTop;
+        this.repeater.containerUpdated();
+      }.bind(this))
+      .on('wheel', function(evt) {
+        if ($attr.mdHorizontal) {
+          this.scroller.scrollLeft = this.scrollOffset + evt.deltaX;
+        } else {
+          this.scroller.scrollTop = this.scrollOffset + evt.deltaY;
+        }
+
+        evt.preventDefault();
+      }.bind(this));
 }
 
 VirtualRepeatContainerController.prototype.register = function(repeaterCtrl) {
