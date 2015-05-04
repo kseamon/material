@@ -11,7 +11,7 @@ angular.module('material.components.virtualRepeat', [
 
 
 // md-horizontal (defaults to vertical)
-function VirtualRepeatContainerDirective() {
+function VirtualRepeatContainerDirective() {console.log('0');
   return {
     controller: VirtualRepeatContainerController,
     replace: true,
@@ -21,9 +21,9 @@ function VirtualRepeatContainerDirective() {
   };
 }
 
-function VirtualRepeatContainerTemplate($element, $attr) {
+function VirtualRepeatContainerTemplate($element, $attrs) {console.log('01');
   return '<div class="md-virtual-repeat-container ' +
-      ($attr.mdHorizontal ? 'md-horizontal' : 'md-vertical') + '">' +
+      ($attrs.mdHorizontal ? 'md-horizontal' : 'md-vertical') + '">' +
     '<div class="md-virtual-repeat-scroller">' +
       '<div class="md-virtual-repeat-sizer"></div>' +
       '<div class="md-virtual-repeat-offsetter"></div>' +
@@ -33,10 +33,10 @@ function VirtualRepeatContainerTemplate($element, $attr) {
   '</div>';
 }
 
-function VirtualRepeatContainerController($scope, $element, $attr, $window) {
+function VirtualRepeatContainerController($scope, $element, $attrs, $window) {console.log('02');
   this.$scope = $scope;
   this.$element = $element;
-  this.$attr = $attr;
+  this.$attrs = $attrs;
   this.$window = $window;
 
   this.size = 0;
@@ -49,7 +49,7 @@ function VirtualRepeatContainerController($scope, $element, $attr, $window) {
   this.offsetter = this.scroller.getElementsByClassName('md-virtual-repeat-ofsetter')[0];
 
   $window.requestAnimationFrame(function() {
-    this.size = $attr.mdHorizontal ? $element[0].clientWidth : $element[0].clientHeight;
+    this.size = $attrs.mdHorizontal ? $element[0].clientWidth : $element[0].clientHeight;
   }.bind(this));
 
   angular.element(this.scroller)
@@ -57,7 +57,7 @@ function VirtualRepeatContainerController($scope, $element, $attr, $window) {
         if (!this.repeater) return;
         // TODO: requestAnimationFrame
         var transform;
-        if ($attr.mdHorizontal) {
+        if ($attrs.mdHorizontal) {
           this.scrollOffset = this.scroller.scrollLeft;
           transform = 'translateX(';
         } else {
@@ -71,7 +71,7 @@ function VirtualRepeatContainerController($scope, $element, $attr, $window) {
         this.repeater.containerUpdated();
       }.bind(this))
       .on('wheel', function(evt) {
-        if ($attr.mdHorizontal) {
+        if ($attrs.mdHorizontal) {
           this.scroller.scrollLeft = this.scrollOffset + evt.deltaX;
         } else {
           this.scroller.scrollTop = this.scrollOffset + evt.deltaY;
@@ -86,7 +86,7 @@ VirtualRepeatContainerController.prototype.register = function(repeaterCtrl) {
 };
 
 VirtualRepeatContainerController.prototype.isHorizontal = function() {
-  return !!$attr.mdHorizontal;
+  return !!$attrs.mdHorizontal;
 };
 
 VirtualRepeatContainerController.prototype.getSize = function() {
@@ -96,7 +96,7 @@ VirtualRepeatContainerController.prototype.getSize = function() {
 VirtualRepeatContainerController.prototype.setScrollSize = function(size) {
   if (this.scrollSize !== size) {
     this.$window.requestAnimationFrame(function() {
-      this.sizer.style[this.$attr.mdHorizontal ? 'width' : 'height'] = size + 'px';
+      this.sizer.style[this.$attrs.mdHorizontal ? 'width' : 'height'] = size + 'px';
     }.bind(this));
     this.scrollSize = size;
   }
@@ -104,7 +104,8 @@ VirtualRepeatContainerController.prototype.setScrollSize = function(size) {
   this.scrollSize = size;
 };
 
-function VirtualRepeatDirective() {
+console.log('a-1');
+function VirtualRepeatDirective() {console.log('a0');
   return {
     controller: VirtualRepeatController,
     priority: 1000,
@@ -112,38 +113,38 @@ function VirtualRepeatDirective() {
     restrict: 'A',
     terminal: true,
     transclude: 'element',
-    compile: function VirtualRepeatCompile($element, $attr) {
-      var expression = $attr.ngRepeat;
+    compile: function VirtualRepeatCompile($element, $attrs, $parse) {console.log('aaa');
+      var expression = $attrs.mdVirtualRepeat;
       var match = expression.match(/^\s*([\s\S]+?)\s+in\s+([\s\S]+?)\s*$/);
       var lhs = match[1];
-      var rhs = match[2];
+      var rhs = $parse(match[2]);
 
-      return function VirtualRepeatLink($scope, $element, $attr, ctrl, $transclude) {
-        ctrl[0].link(ctrl[1], $transclude);
+      return function VirtualRepeatLink($scope, $element, $attrs, ctrl, $transclude) {console.log('ab');
+        ctrl[0].link(ctrl[1], $transclude, lhs, rhs);
       };
     }
   };
 }
 
-function VirtualRepeatController($scope, $element, $attr) {
+function VirtualRepeatController($scope, $element, $attrs) {console.log('aa');
   this.$scope = $scope;
   this.$element = $element;
-  this.$attr = $attr;
+  this.$attrs = $attrs;
 
-  // Will probably need some way of getting this from the dom/theme/etc.
-  this.firstItemOffset = 0;
   this.startIndex = 0;
   this.endIndex = 0;
   // Possible TODO: measure height of first row from dom if not provided?
-  this.itemSize = $scope.$eval($attr.mdSize);
+  this.itemSize = $scope.$eval($attrs.mdSize);
   this.blocks = {};
   this.pooledBlocks = [];
 }
 
-VirtualRepeatController.prototype.link = function(container, transclude, itemSizeExpr) {
+VirtualRepeatController.prototype.link = function(container, transclude, lhs, rhs) {
   this.container = container;
   this.transclude = transclude;
-
+  this.lhs = lhs;
+  this.rhs = rhs;
+  console.log('a', lhs);
   this.$scope.$watchCollection(rhs, this.virtualRepeatUpdate.bind(this));
 };
 
@@ -152,10 +153,15 @@ VirtualRepeatController.prototype.containerUpdated = function() {
 };
 
 VirtualRepeatController.prototype.virtualRepeatUpdate = function(items, oldItems) {
-  var newStartIndex = this.container.getScrollOffset() % this.itemSize;
-  var newEndIndex = newStartIndex + container.getSize() % this.itemSize;
+  this.items = items;
+  var itemsLength = items ? items.length : 0;
+  var containerLength = Math.ceil(container.getSize() / this.itemSize);
+  var newStartIndex = Math.max(0, Math.min(
+          itemsLength - containerLength,
+          this.container.getScrollOffset() % this.itemSize));
+  var newEndIndex = Math.min(itemsLength, newStartIndex + containerLength);
   var i;
-  
+  console.log('b', items, newStartIndex, newEndIndex);  
   // Remove and pool leftover elements.
   for (i = this.startIndex; i < newStartIndex; i++) {
     this.poolBlock(i);
@@ -212,7 +218,7 @@ VirtualRepeatController.prototype.getBlock = function() {
 
 VirtualRepeatController.prototype.updateBlock = function(block, index) {
   block.scope.$index = index;
-  block.scope[this.lhs] = this.rhs[index];
+  block.scope[this.lhs] = this.items[index];
   this.blocks[index] = block;
 
   // Perform digest before reattaching the block.

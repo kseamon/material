@@ -1,0 +1,11 @@
+<div ng-controller="AppCtrl as ctrl">
+  <md>
+    <md-virtual-repeat-container id="vertical-container">
+      <div md-virtual-repeat="item in ctrl.items"
+          md-size="40"
+          class="repeated-item">
+        {{item}}
+      </div>
+    </md-virtual-repeat-container>
+  </md>
+</div>
