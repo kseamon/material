@@ -55,23 +55,28 @@ function VirtualRepeatContainerController($scope, $element, $attrs, $window) {
     this.repeater.containerUpdated();
   }.bind(this));
 
+  this.frame = null;
   angular.element(this.scroller)
       .on('scroll', function(evt) {
-        if (!this.repeater) return;
-        // TODO: requestAnimationFrame
-        var transform;
-        if ($attrs.mdHorizontal) {
-          this.scrollOffset = this.scroller.scrollLeft;
-          transform = 'translateX(';
-        } else {
-          this.scrollOffset = this.scroller.scrollTop;
-          transform = 'translateY(';
-        }
-        transform += (this.scrollOffset - this.scrollOffset % this.repeater.getSize()) + 'px)';
-        this.offsetter.style.webkitTransform = transform;
-        this.offsetter.style.transform = transform;
+        if (!this.repeater || this.frame) return;
 
-        this.repeater.containerUpdated();
+        this.frame = $window.requestAnimationFrame(function() {
+          this.frame = null;
+
+          var transform;
+          if ($attrs.mdHorizontal) {
+            this.scrollOffset = this.scroller.scrollLeft;
+            transform = 'translateX(';
+          } else {
+            this.scrollOffset = this.scroller.scrollTop;
+            transform = 'translateY(';
+          }
+          transform += (this.scrollOffset - this.scrollOffset % this.repeater.getSize()) + 'px)';
+          this.offsetter.style.webkitTransform = transform;
+          this.offsetter.style.transform = transform;
+
+          this.repeater.containerUpdated();
+        }.bind(this));
       }.bind(this));
 }
 
@@ -151,10 +156,10 @@ VirtualRepeatController.prototype.containerUpdated = function() {
   if (!this.sized) {
     this.sized = true;
     this.$scope.$watchCollection(this.rhs, this.virtualRepeatUpdate.bind(this));
+    this.items = this.rhs(this.$scope);
   }
 
-  var items = this.rhs(this.$scope);
-  this.virtualRepeatUpdate(items, items);
+  this.virtualRepeatUpdate(this.items, this.items);
 };
 
 VirtualRepeatController.prototype.virtualRepeatUpdate = function(items, oldItems) {
@@ -166,17 +171,16 @@ VirtualRepeatController.prototype.virtualRepeatUpdate = function(items, oldItems
           Math.floor(this.container.getScrollOffset() / this.itemSize)));
   var newEndIndex = Math.min(itemsLength, newStartIndex + containerLength + 1);
   var i;
-  
+
   this.container.setScrollSize(itemsLength * this.itemSize);
   
-  // Remove and pool leftover elements.
-  for (i = this.startIndex; i < newStartIndex; i++) {
-    this.poolBlock(i);
-  }
-  for (i = newEndIndex; i < this.endIndex; i++) {
-    this.poolBlock(i);
-  }
-  
+  Object.keys(this.blocks).forEach(function(blockIndex) {
+    var index = parseInt(blockIndex);
+    if (index < newStartIndex || index > newEndIndex) {
+      this.poolBlock(index);
+    }
+  }, this);
+
   // Add needed elements.
   var newStartBlocks = [];
   var block;
