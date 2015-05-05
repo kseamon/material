@@ -13,11 +13,12 @@ $virtual-repeat-scrollbar-width: 16px;
     left: 0;
     margin: 0;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: scroll;
     padding: 0;
     position: absolute;
     right: 0;
     top: 0;
+    -webkit-overflow-scrolling: touch;
   }
 
   .md-virtual-repeat-sizer {
@@ -44,8 +45,8 @@ $virtual-repeat-scrollbar-width: 16px;
 
 .md-virtual-repeat-container.md-horizontal {
   .md-virtual-repeat-scroller {
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow-x: scroll;
+    overflow-y: hidden;
   }
 
   .md-virtual-repeat-offsetter {
