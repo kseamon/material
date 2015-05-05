@@ -1,10 +1,11 @@
 
 #vertical-container {
   height: 300px;
-  width: 300px;
+  width: 400px;
 }
 
 .repeated-item {
+  border-bottom: 1px solid #ddd;
   box-sizing: border-box;
   height: 40px;
 }
