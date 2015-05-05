@@ -45,43 +45,30 @@ function VirtualRepeatContainerController($scope, $element, $attrs, $window) {
   this.scrollSize = 0;
   this.scrollOffset = 0;
   this.repeater = null;
+  this.frame = null;
 
   this.scroller = $element[0].getElementsByClassName('md-virtual-repeat-scroller')[0];
   this.sizer = this.scroller.getElementsByClassName('md-virtual-repeat-sizer')[0];
   this.offsetter = this.scroller.getElementsByClassName('md-virtual-repeat-offsetter')[0];
 
+  this.handleScroll = this.handleScroll.bind(this);
+
   $window.requestAnimationFrame(function() {
     this.size = $attrs.mdHorizontal ? $element[0].clientWidth : $element[0].clientHeight;
     this.repeater.containerUpdated();
   }.bind(this));
-
-  this.frame = null;
-  angular.element(this.scroller)
-      .on('scroll', function(evt) {
-        if (!this.repeater || this.frame) return;
-
-        this.frame = $window.requestAnimationFrame(function() {
-          this.frame = null;
-
-          var transform;
-          if ($attrs.mdHorizontal) {
-            this.scrollOffset = this.scroller.scrollLeft;
-            transform = 'translateX(';
-          } else {
-            this.scrollOffset = this.scroller.scrollTop;
-            transform = 'translateY(';
-          }
-          transform += (this.scrollOffset - this.scrollOffset % this.repeater.getSize()) + 'px)';
-          this.offsetter.style.webkitTransform = transform;
-          this.offsetter.style.transform = transform;
-
-          this.repeater.containerUpdated();
-        }.bind(this));
-      }.bind(this));
 }
 
 VirtualRepeatContainerController.prototype.register = function(repeaterCtrl) {
   this.repeater = repeaterCtrl;
+  
+  angular.element(this.scroller)
+      .off('scroll')
+      .on('scroll', function(evt) {
+        if (this.frame) return;
+
+        this.frame = $window.requestAnimationFrame(this.handleScroll);
+      }.bind(this));
 };
 
 VirtualRepeatContainerController.prototype.isHorizontal = function() {
@@ -101,6 +88,24 @@ VirtualRepeatContainerController.prototype.setScrollSize = function(size) {
   }
 
   this.scrollSize = size;
+};
+
+VirtualRepeatContainerController.prototype.handleScroll = function() {
+  this.frame = null;
+
+  var transform;
+  if ($attrs.mdHorizontal) {
+    this.scrollOffset = this.scroller.scrollLeft;
+    transform = 'translateX(';
+  } else {
+    this.scrollOffset = this.scroller.scrollTop;
+    transform = 'translateY(';
+  }
+  transform += (this.scrollOffset - this.scrollOffset % this.repeater.getSize()) + 'px)';
+  this.offsetter.style.webkitTransform = transform;
+  this.offsetter.style.transform = transform;
+
+  this.repeater.containerUpdated();
 };
 
 VirtualRepeatContainerController.prototype.getScrollOffset = function() {
