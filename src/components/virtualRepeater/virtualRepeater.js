@@ -35,17 +35,19 @@ function VirtualRepeatContainerTemplate($element, $attrs) {
   '</div>';
 }
 
-function VirtualRepeatContainerController($scope, $element, $attrs, $window) {
+function VirtualRepeatContainerController($scope, $element, $attrs, $timeout, $window) {
   this.$scope = $scope;
   this.$element = $element;
   this.$attrs = $attrs;
+  this.$timeout = $timeout;
   this.$window = $window;
 
   this.size = 0;
   this.scrollSize = 0;
   this.scrollOffset = 0;
   this.repeater = null;
-  this.frame = null;
+  this.offsetterWillChange = false;
+  this.willChangeTimeout = null;
 
   this.scroller = $element[0].getElementsByClassName('md-virtual-repeat-scroller')[0];
   this.sizer = this.scroller.getElementsByClassName('md-virtual-repeat-sizer')[0];
@@ -63,12 +65,23 @@ VirtualRepeatContainerController.prototype.register = function(repeaterCtrl) {
   this.repeater = repeaterCtrl;
   
   angular.element(this.scroller)
-      .off('scroll')
-      .on('scroll', function(evt) {
-        if (this.frame) return;
-
-        this.frame = this.$window.requestAnimationFrame(this.handleScroll);
+      .on('scroll wheel touchmove touchend', this.handleScroll)
+      .on('scroll touchstart mouseenter', this.willChange.bind(this, true))
+      .on('mouseleave', this.willChange.bind(this, false))
+      .on('touchend', function() {
+        this.$timeout.cancel(this.willChangeTimeout);
+        this.willChangeTimeout = this.$timeout(
+            this.willChange.bind(this, false), 0, false);
       }.bind(this));
+};
+
+VirtualRepeatContainerController.prototype.willChange = function(newSetting) {
+  this.$timeout.cancel(this.willChangeTimeout);
+
+  if (newSetting === this.offsetterWillChange) return;
+
+  this.offsetterWillChange = newSetting;
+  this.offsetter.style.willChange = newSetting ? 'transform' : 'auto';
 };
 
 VirtualRepeatContainerController.prototype.isHorizontal = function() {
@@ -77,6 +90,10 @@ VirtualRepeatContainerController.prototype.isHorizontal = function() {
 
 VirtualRepeatContainerController.prototype.getSize = function() {
   return this.size;
+};
+
+VirtualRepeatContainerController.prototype.getScrollSize = function() {
+  return this.scrollSize;
 };
 
 VirtualRepeatContainerController.prototype.setScrollSize = function(size) {
@@ -91,9 +108,10 @@ VirtualRepeatContainerController.prototype.setScrollSize = function(size) {
 };
 
 VirtualRepeatContainerController.prototype.handleScroll = function(horizontal) {
-  this.frame = null;
-
+  var NUM_EXTRA = 3;
   var transform;
+  var oldOffset = this.scrollOffset;
+
   if (horizontal) {
     this.scrollOffset = this.scroller.scrollLeft;
     transform = 'translateX(';
@@ -101,7 +119,11 @@ VirtualRepeatContainerController.prototype.handleScroll = function(horizontal) {
     this.scrollOffset = this.scroller.scrollTop;
     transform = 'translateY(';
   }
-  transform += (this.scrollOffset - this.scrollOffset % this.repeater.getSize()) + 'px)';
+
+  if (oldOffset === this.scrollOffset) return;
+
+  var itemSize = this.repeater.getSize();
+  transform += (Math.max(0, this.scrollOffset - itemSize * NUM_EXTRA) - this.scrollOffset % itemSize) + 'px)';
   this.offsetter.style.webkitTransform = transform;
   this.offsetter.style.transform = transform;
 
@@ -162,6 +184,8 @@ VirtualRepeatController.prototype.link = function(container, transclude, lhs, rh
 };
 
 VirtualRepeatController.prototype.containerUpdated = function() {
+  var NUM_EXTRA = 3;
+
   if (!this.sized) {
     this.sized = true;
     this.$scope.$watchCollection(this.rhs, this.virtualRepeatUpdate.bind(this));
@@ -173,10 +197,12 @@ VirtualRepeatController.prototype.containerUpdated = function() {
   this.newStartIndex = Math.max(0, Math.min(
           itemsLength - containerLength,
           Math.floor(this.container.getScrollOffset() / this.itemSize)));
-  this.newEndIndex = Math.min(itemsLength, this.newStartIndex + containerLength + 1);
+  this.newEndIndex = Math.min(itemsLength, this.newStartIndex + containerLength + NUM_EXTRA);
+  this.newStartIndex = Math.max(0, this.newStartIndex - NUM_EXTRA);
 
   if (this.newStartIndex !== this.startIndex ||
-      this.newEndIndex !== this.endIndex) {
+      this.newEndIndex !== this.endIndex ||
+      this.container.getScrollOffset() > this.container.getScrollSize()) {
     this.virtualRepeatUpdate(this.items, this.items);
   }
 };
