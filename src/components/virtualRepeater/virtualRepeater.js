@@ -51,7 +51,7 @@ function VirtualRepeatContainerController($scope, $element, $attrs, $window) {
   this.sizer = this.scroller.getElementsByClassName('md-virtual-repeat-sizer')[0];
   this.offsetter = this.scroller.getElementsByClassName('md-virtual-repeat-offsetter')[0];
 
-  this.handleScroll = this.handleScroll.bind(this);
+  this.handleScroll = this.handleScroll.bind(this, !!$attrs.mdHorizontal);
 
   $window.requestAnimationFrame(function() {
     this.size = $attrs.mdHorizontal ? $element[0].clientWidth : $element[0].clientHeight;
@@ -67,7 +67,7 @@ VirtualRepeatContainerController.prototype.register = function(repeaterCtrl) {
       .on('scroll', function(evt) {
         if (this.frame) return;
 
-        this.frame = $window.requestAnimationFrame(this.handleScroll);
+        this.frame = this.$window.requestAnimationFrame(this.handleScroll);
       }.bind(this));
 };
 
@@ -90,11 +90,11 @@ VirtualRepeatContainerController.prototype.setScrollSize = function(size) {
   this.scrollSize = size;
 };
 
-VirtualRepeatContainerController.prototype.handleScroll = function() {
+VirtualRepeatContainerController.prototype.handleScroll = function(horizontal) {
   this.frame = null;
 
   var transform;
-  if ($attrs.mdHorizontal) {
+  if (horizontal) {
     this.scrollOffset = this.scroller.scrollLeft;
     transform = 'translateX(';
   } else {
@@ -133,12 +133,16 @@ function VirtualRepeatDirective($parse) {
   };
 }
 
-function VirtualRepeatController($scope, $element, $attrs, $document) {
+function VirtualRepeatController($scope, $element, $attrs, $browser, $document) {
   this.$scope = $scope;
   this.$element = $element;
   this.$attrs = $attrs;
+  this.$browser = $browser;
   this.$document = $document;
 
+  this.browserCheckUrlChange = $browser.$$checkUrlChange;
+  this.newStartIndex = 0;
+  this.newEndIndex = 0;
   this.startIndex = 0;
   this.endIndex = 0;
   // Possible TODO: measure height of first row from dom if not provided?
@@ -164,54 +168,68 @@ VirtualRepeatController.prototype.containerUpdated = function() {
     this.items = this.rhs(this.$scope);
   }
 
-  this.virtualRepeatUpdate(this.items, this.items);
+  var itemsLength = this.items ? this.items.length : 0;
+  var containerLength = Math.ceil(this.container.getSize() / this.itemSize);
+  this.newStartIndex = Math.max(0, Math.min(
+          itemsLength - containerLength,
+          Math.floor(this.container.getScrollOffset() / this.itemSize)));
+  this.newEndIndex = Math.min(itemsLength, this.newStartIndex + containerLength + 1);
+
+  if (this.newStartIndex !== this.startIndex ||
+      this.newEndIndex !== this.endIndex) {
+    this.virtualRepeatUpdate(this.items, this.items);
+  }
 };
 
 VirtualRepeatController.prototype.virtualRepeatUpdate = function(items, oldItems) {
   this.items = items;
-  var itemsLength = items ? items.length : 0;
-  var containerLength = Math.ceil(this.container.getSize() / this.itemSize);
-  var newStartIndex = Math.max(0, Math.min(
-          itemsLength - containerLength,
-          Math.floor(this.container.getScrollOffset() / this.itemSize)));
-  var newEndIndex = Math.min(itemsLength, newStartIndex + containerLength + 1);
+  this.parentNode = this.$element[0].parentNode;
   var i;
 
-  this.container.setScrollSize(itemsLength * this.itemSize);
+  this.container.setScrollSize((this.items ? this.items.length : 0) * this.itemSize);
   
+  // Detach and pool any blocks that are no longer in the viewport.
   Object.keys(this.blocks).forEach(function(blockIndex) {
     var index = parseInt(blockIndex);
-    if (index < newStartIndex || index > newEndIndex) {
+    if (index < this.newStartIndex || index > this.newEndIndex) {
       this.poolBlock(index);
     }
   }, this);
 
-  // Add needed elements.
+  // Add needed blocks.
   var newStartBlocks = [];
   var block;
-  for (i = newStartIndex; i < this.startIndex && this.blocks[i] == null; i++) {
+  // For performance reasons, temporarily block browser url checks as we digest
+  // the restored block scopes.
+  this.$browser.$$checkUrlChange = angular.noop;
+  for (i = this.newStartIndex; i < this.startIndex && this.blocks[i] == null; i++) {
     block = this.getBlock();
     this.updateBlock(block, i);
     newStartBlocks.push(block);
   }
   var newEndBlocks = [];
-  for (i = this.endIndex; i < newEndIndex && this.blocks[i] == null; i++) {
+  for (i = this.endIndex; i < this.newEndIndex && this.blocks[i] == null; i++) {
     block = this.getBlock();
     this.updateBlock(block, i);
     newEndBlocks.push(block);
   }
+  // Restore $$checkUrlChange.
+  this.$browser.$$checkUrlChange = this.browserCheckUrlChange;
 
   // For now, use dom reordering to implement virtual scroll.
   // In the future, try out a transform-based cycle.
   if (newStartBlocks.length) {
-    this.$element.after(this.domFragmentFromBlocks(newStartBlocks));
+    // this.$element.after(this.domFragmentFromBlocks(newStartBlocks));
+    this.parentNode.insertBefore(
+        this.domFragmentFromBlocks(newStartBlocks),
+        this.$element[0].nextSibling);
   }
   if (newEndBlocks.length) {
-    this.$element[0].parentNode.appendChild(this.domFragmentFromBlocks(newEndBlocks));
+    this.parentNode.appendChild(this.domFragmentFromBlocks(newEndBlocks));
   }
 
-  this.startIndex = newStartIndex;
-  this.endIndex = newEndIndex;
+  this.startIndex = this.newStartIndex;
+  this.endIndex = this.newEndIndex;
 };
 
 VirtualRepeatController.prototype.getBlock = function() {
@@ -236,13 +254,14 @@ VirtualRepeatController.prototype.updateBlock = function(block, index) {
   this.blocks[index] = block;
 
   // Perform digest before reattaching the block.
+  // Any resulting synchronous dom mutations should be much faster as a result.
   // This might break some directives, but I'm going to try it for now.
   block.scope.$digest();
 };
 
 VirtualRepeatController.prototype.poolBlock = function(index) {
   this.pooledBlocks.push(this.blocks[index]);
-  this.blocks[index].element.detach();
+  this.parentNode.removeChild(this.blocks[index].element[0]);
   delete this.blocks[index];
 };
 
