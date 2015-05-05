@@ -56,3 +56,8 @@ $virtual-repeat-scrollbar-width: 16px;
   }
 }
 
+[md-virtual-repeat] {
+  left: 0;
+  position: absolute;
+  right: 0;
+}

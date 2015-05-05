@@ -124,8 +124,8 @@ VirtualRepeatContainerController.prototype.handleScroll = function(horizontal) {
 
   var itemSize = this.repeater.getSize();
   transform += (Math.max(0, this.scrollOffset - itemSize * NUM_EXTRA) - this.scrollOffset % itemSize) + 'px)';
-  this.offsetter.style.webkitTransform = transform;
-  this.offsetter.style.transform = transform;
+  // this.offsetter.style.webkitTransform = transform;
+  // this.offsetter.style.transform = transform;
 
   this.repeater.containerUpdated();
 };
@@ -244,15 +244,15 @@ VirtualRepeatController.prototype.virtualRepeatUpdate = function(items, oldItems
 
   // For now, use dom reordering to implement virtual scroll.
   // In the future, try out a transform-based cycle.
-  if (newStartBlocks.length) {
-    // this.$element.after(this.domFragmentFromBlocks(newStartBlocks));
-    this.parentNode.insertBefore(
-        this.domFragmentFromBlocks(newStartBlocks),
-        this.$element[0].nextSibling);
-  }
-  if (newEndBlocks.length) {
-    this.parentNode.appendChild(this.domFragmentFromBlocks(newEndBlocks));
-  }
+  // if (newStartBlocks.length) {
+//     // this.$element.after(this.domFragmentFromBlocks(newStartBlocks));
+//     this.parentNode.insertBefore(
+//         this.domFragmentFromBlocks(newStartBlocks),
+//         this.$element[0].nextSibling);
+//   }
+//   if (newEndBlocks.length) {
+//     this.parentNode.appendChild(this.domFragmentFromBlocks(newEndBlocks));
+//   }
 
   this.startIndex = this.newStartIndex;
   this.endIndex = this.newEndIndex;
@@ -269,7 +269,8 @@ VirtualRepeatController.prototype.getBlock = function() {
       element: clone,
       scope: scope
     };
-  });
+    this.parentNode.appendChild(clone[0]);
+  }.bind(this));
 
   return block;
 };
@@ -278,6 +279,10 @@ VirtualRepeatController.prototype.updateBlock = function(block, index) {
   block.scope.$index = index;
   block.scope[this.lhs] = this.items[index];
   this.blocks[index] = block;
+  // block.element[0].style.top = index * this.itemSize + 'px';
+  var transform = 'translateY(' + index * this.itemSize + 'px)';
+  block.element[0].style.webkitTransform = transform;
+  block.element[0].style.transform = transform;
 
   // Perform digest before reattaching the block.
   // Any resulting synchronous dom mutations should be much faster as a result.
@@ -287,7 +292,9 @@ VirtualRepeatController.prototype.updateBlock = function(block, index) {
 
 VirtualRepeatController.prototype.poolBlock = function(index) {
   this.pooledBlocks.push(this.blocks[index]);
-  this.parentNode.removeChild(this.blocks[index].element[0]);
+  // this.parentNode.removeChild(this.blocks[index].element[0]);
+  this.blocks[index].element[0].style.webkitTransform = 'translateY(-1000px)';
+  this.blocks[index].element[0].style.transform = 'translateY(-1000px)';
   delete this.blocks[index];
 };
 
