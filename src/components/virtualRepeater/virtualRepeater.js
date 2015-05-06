@@ -23,7 +23,7 @@ function VirtualRepeatContainerDirective() {
 function VirtualRepeatContainerTemplate($element, $attrs) {
   var innerHtml = $element[0].innerHTML;
   $element[0].innerHTML = '';
-
+  // TODO: we probably don't need the container anymore.
   return '<div class="md-virtual-repeat-container ' +
       ($attrs.mdHorizontal ? 'md-horizontal' : 'md-vertical') + '">' +
     '<div class="md-virtual-repeat-scroller">' +
@@ -46,8 +46,6 @@ function VirtualRepeatContainerController($scope, $element, $attrs, $timeout, $w
   this.scrollSize = 0;
   this.scrollOffset = 0;
   this.repeater = null;
-  this.offsetterWillChange = false;
-  this.willChangeTimeout = null;
 
   this.scroller = $element[0].getElementsByClassName('md-virtual-repeat-scroller')[0];
   this.sizer = this.scroller.getElementsByClassName('md-virtual-repeat-sizer')[0];
@@ -65,23 +63,7 @@ VirtualRepeatContainerController.prototype.register = function(repeaterCtrl) {
   this.repeater = repeaterCtrl;
   
   angular.element(this.scroller)
-      .on('scroll wheel touchmove touchend', this.handleScroll)
-      .on('scroll touchstart mouseenter', this.willChange.bind(this, true))
-      .on('mouseleave', this.willChange.bind(this, false))
-      .on('touchend', function() {
-        this.$timeout.cancel(this.willChangeTimeout);
-        this.willChangeTimeout = this.$timeout(
-            this.willChange.bind(this, false), 0, false);
-      }.bind(this));
-};
-
-VirtualRepeatContainerController.prototype.willChange = function(newSetting) {
-  this.$timeout.cancel(this.willChangeTimeout);
-
-  if (newSetting === this.offsetterWillChange) return;
-
-  this.offsetterWillChange = newSetting;
-  this.offsetter.style.willChange = newSetting ? 'transform' : 'auto';
+      .on('scroll wheel touchmove touchend', this.handleScroll);
 };
 
 VirtualRepeatContainerController.prototype.isHorizontal = function() {
@@ -108,8 +90,7 @@ VirtualRepeatContainerController.prototype.setScrollSize = function(size) {
 };
 
 VirtualRepeatContainerController.prototype.handleScroll = function(horizontal, evt) {
-  var NUM_EXTRA = 3;
-  // var transform;
+  var NUM_EXTRA = 1;
   var oldOffset = this.scrollOffset;
 
   // TODO: calculate delta for touchmove?
@@ -117,7 +98,8 @@ VirtualRepeatContainerController.prototype.handleScroll = function(horizontal, e
   // Possible way to detect: a scroll event gets past skip... 2 wheels later and we're out of sync
   // console.log(evt.type, this.skipNextScroll);
   if (evt.type === 'wheel' && evt.deltaX < this.size && evt.deltaY < this.size) {
-    this.skipNextScroll = true;
+    // Disabling this optimization for now - (See FF comment above)
+    // this.skipNextScroll = true;
   } else if (this.skipNextScroll && evt.type === 'scroll') {
     this.skipNextScroll = false;
     return;
@@ -127,21 +109,14 @@ VirtualRepeatContainerController.prototype.handleScroll = function(horizontal, e
     this.scrollOffset = evt.type !== 'wheel'
         ? this.scroller.scrollLeft
         : this.scrollOffset + evt.deltaX;
-    // transform = 'translateX(';
   } else {
     this.scrollOffset = evt.type !== 'wheel'
         ? this.scroller.scrollTop
         : this.scrollOffset + evt.deltaY;
-    // transform = 'translateY(';
   }
-  // console.log(evt.deltaY, this.scrollOffset, this.scroller.scrollTop + evt.deltaY);
+
   this.scrollOffset = Math.min(this.scrollSize - this.size, Math.max(0, this.scrollOffset));
   if (oldOffset === this.scrollOffset) return;
-
-  // var itemSize = this.repeater.getSize();
-  // transform += (Math.max(0, this.scrollOffset - itemSize * NUM_EXTRA) - this.scrollOffset % itemSize) + 'px)';
-  // this.offsetter.style.webkitTransform = transform;
-  // this.offsetter.style.transform = transform;
 
   this.repeater.containerUpdated();
 };
@@ -187,6 +162,7 @@ function VirtualRepeatController($scope, $element, $attrs, $browser, $document) 
   this.itemSize = $scope.$eval($attrs.mdSize);
   this.blocks = {};
   this.pooledBlocks = [];
+  this.numBlocks = 0;
 }
 
 VirtualRepeatController.prototype.link = function(container, transclude, lhs, rhs) {
@@ -225,8 +201,7 @@ VirtualRepeatController.prototype.containerUpdated = function() {
 
 VirtualRepeatController.prototype.virtualRepeatUpdate = function(items, oldItems) {
   this.items = items;
-  this.parentNode = this.$element[0].parentNode;
-  var i;
+  this.parentNode = null;
 
   this.container.setScrollSize((this.items ? this.items.length : 0) * this.itemSize);
   
@@ -244,33 +219,20 @@ VirtualRepeatController.prototype.virtualRepeatUpdate = function(items, oldItems
   // For performance reasons, temporarily block browser url checks as we digest
   // the restored block scopes.
   this.$browser.$$checkUrlChange = angular.noop;
-  for (i = this.newStartIndex; i < this.startIndex && this.blocks[i] == null; i++) {
+
+  for (var i = this.newStartIndex; i < this.newEndIndex; i++) {
+    if (this.blocks[i]) continue;
+
     block = this.getBlock();
     this.updateBlock(block, i);
     newStartBlocks.push(block);
   }
-  var newEndBlocks = [];
-  for (i = this.endIndex; i < this.newEndIndex && this.blocks[i] == null; i++) {
-    block = this.getBlock();
-    this.updateBlock(block, i);
-    newEndBlocks.push(block);
-  }
+
   // Restore $$checkUrlChange.
   this.$browser.$$checkUrlChange = this.browserCheckUrlChange;
 
-  // For now, use dom reordering to implement virtual scroll.
-  // In the future, try out a transform-based cycle.
-  // if (newStartBlocks.length) {
-//     // this.$element.after(this.domFragmentFromBlocks(newStartBlocks));
-//     this.parentNode.insertBefore(
-//         this.domFragmentFromBlocks(newStartBlocks),
-//         this.$element[0].nextSibling);
-//   }
-//   if (newEndBlocks.length) {
-//     this.parentNode.appendChild(this.domFragmentFromBlocks(newEndBlocks));
-//   }
-
   this.pooledBlocks.forEach(function(block) {
+    // TODO: translateX when horizontal.
     block.element[0].style.webkitTransform = 'translateY(-1000px)';
     block.element[0].style.transform = 'translateY(-1000px)';
   });
@@ -288,8 +250,10 @@ VirtualRepeatController.prototype.getBlock = function() {
   this.transclude(function(clone, scope) {
     block = {
       element: clone,
-      scope: scope
+      scope: scope,
+      index: this.numBlocks++
     };
+    this.parentNode = this.parentNode || this.$element[0].parentNode;
     this.parentNode.appendChild(clone[0]);
   }.bind(this));
 
@@ -300,33 +264,19 @@ VirtualRepeatController.prototype.updateBlock = function(block, index) {
   block.scope.$index = index;
   block.scope[this.lhs] = this.items[index];
   this.blocks[index] = block;
-  // block.element[0].style.top = index * this.itemSize + 'px';
-  var transform = 'translateY(' + index * this.itemSize + 'px)';
+  block.scope.$digest();
+
+  // TODO: translateX when horizontal.
+  var transform = 'translateY(' + ((index - block.index) * this.itemSize) + 'px)';
   block.element[0].style.webkitTransform = transform;
   block.element[0].style.transform = transform;
-
-  // Perform digest before reattaching the block.
-  // Any resulting synchronous dom mutations should be much faster as a result.
-  // This might break some directives, but I'm going to try it for now.
-  block.scope.$digest();
 };
 
 VirtualRepeatController.prototype.poolBlock = function(index) {
   this.pooledBlocks.push(this.blocks[index]);
-  // this.parentNode.removeChild(this.blocks[index].element[0]);
-  // this.blocks[index].element[0].style.webkitTransform = 'translateY(-1000px)';
-  // this.blocks[index].element[0].style.transform = 'translateY(-1000px)';
   delete this.blocks[index];
 };
 
 VirtualRepeatController.prototype.getSize = function() {
   return this.itemSize;
-};
-
-VirtualRepeatController.prototype.domFragmentFromBlocks = function(blocks) {
-  var fragment = this.$document[0].createDocumentFragment();
-  blocks.forEach(function(block) {
-    fragment.appendChild(block.element[0]);
-  });
-  return fragment;
 };

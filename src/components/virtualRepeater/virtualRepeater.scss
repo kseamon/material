@@ -57,8 +57,9 @@ $virtual-repeat-scrollbar-width: 16px;
 }
 
 [md-virtual-repeat] {
-  left: 0;
-  position: absolute;
-  right: 0;
   will-change: transform;
+}
+
+.ng-hide [md-virtual-repeat] {
+  will-change: auto;
 }
