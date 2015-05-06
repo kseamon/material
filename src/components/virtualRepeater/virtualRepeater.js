@@ -90,35 +90,12 @@ VirtualRepeatContainerController.prototype.setScrollSize = function(size) {
 };
 
 VirtualRepeatContainerController.prototype.handleScroll = function(horizontal, evt) {
-  var NUM_EXTRA = 1;
   var oldOffset = this.scrollOffset;
 
-  // TODO: calculate delta for touchmove?
-  // TODO: This does not work in FF mac (momentum-triggered events have wrong delta)
-  // Possible way to detect: a scroll event gets past skip... 2 wheels later and we're out of sync
-  // console.log(evt.type, this.skipNextScroll);
-  if (evt.type === 'wheel' && evt.deltaX < this.size && evt.deltaY < this.size) {
-    // Disabling this optimization for now - (See FF comment above)
-    // this.skipNextScroll = true;
-  } else if (this.skipNextScroll && evt.type === 'scroll') {
-    this.skipNextScroll = false;
-    return;
-  }
+  this.scrollOffset = Math.min(this.scrollSize - this.size,
+      Math.max(0, horizontal ? this.scroller.scrollLeft : this.scroller.scrollTop));
 
-  if (horizontal) {
-    this.scrollOffset = evt.type !== 'wheel'
-        ? this.scroller.scrollLeft
-        : this.scrollOffset + evt.deltaX;
-  } else {
-    this.scrollOffset = evt.type !== 'wheel'
-        ? this.scroller.scrollTop
-        : this.scrollOffset + evt.deltaY;
-  }
-
-  this.scrollOffset = Math.min(this.scrollSize - this.size, Math.max(0, this.scrollOffset));
-  if (oldOffset === this.scrollOffset) return;
-
-  this.repeater.containerUpdated();
+  if (oldOffset !== this.scrollOffset) this.repeater.containerUpdated();
 };
 
 VirtualRepeatContainerController.prototype.getScrollOffset = function() {
