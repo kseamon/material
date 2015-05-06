@@ -10,15 +10,41 @@ angular.module('material.components.virtualRepeat', [
 .directive('mdVirtualRepeat', VirtualRepeatDirective);
 
 
-// md-horizontal (defaults to vertical)
+/**
+ * @ngdoc directive
+ * @name mdVirtualRepeatContainer
+ * @module material.components.virtualRepeat
+ * @restrict E
+ * @description
+ * `md-virtual-repeat-container` provides the scroll container for md-virtual-repeat.
+ *
+ * Virtual repeat is a limited substitute for ng-repeat that allows renders only
+ * enough dom nodes to fill the container and recycling them as the user scrolls.
+ *
+ * @usage
+ * <hljs lang="html">
+ * <md-virtual-repeat-container md-horizonal>
+ *   <div md-virtual-repeat="i in items">Hello {{i}}!</div>
+ * </md-virtual-repeat-containr>
+ *
+ * <md-virtual-repeat-container md-horizonal>
+ *   <div md-virtual-repeat="i in items">Hello {{i}}!</div>
+ * </md-virtual-repeat-containr>
+ * </hljs>
+ *
+ * @param {boolean=} md-horizontal Whether the container should scroll horizontally
+ *     (defaults to scrolling vertically).
+ */
 function VirtualRepeatContainerDirective() {
   return {
     controller: VirtualRepeatContainerController,
     replace: true,
     require: 'virtualRepeatContainer',
+    restrict: 'E',
     template: VirtualRepeatContainerTemplate
   };
 }
+
 
 function VirtualRepeatContainerTemplate($element, $attrs) {
   var innerHtml = $element[0].innerHTML;
@@ -34,6 +60,7 @@ function VirtualRepeatContainerTemplate($element, $attrs) {
     '</div>' +
   '</div>';
 }
+
 
 function VirtualRepeatContainerController($scope, $element, $attrs, $timeout, $window) {
   this.$scope = $scope;
@@ -51,45 +78,69 @@ function VirtualRepeatContainerController($scope, $element, $attrs, $timeout, $w
   this.sizer = this.scroller.getElementsByClassName('md-virtual-repeat-sizer')[0];
   this.offsetter = this.scroller.getElementsByClassName('md-virtual-repeat-offsetter')[0];
 
-  this.handleScroll = this.handleScroll.bind(this, !!$attrs.mdHorizontal);
+  this.handleScroll_ = this.handleScroll_.bind(this, !!$attrs.mdHorizontal);
 
-  $window.requestAnimationFrame(function() {
-    this.size = $attrs.mdHorizontal ? $element[0].clientWidth : $element[0].clientHeight;
-    this.repeater.containerUpdated();
-  }.bind(this));
+  $window.requestAnimationFrame(this.updateSize.bind(this));
 }
 
+
+/** Called by the md-virtual-repeat inside of the container at startup. */
 VirtualRepeatContainerController.prototype.register = function(repeaterCtrl) {
   this.repeater = repeaterCtrl;
   
   angular.element(this.scroller)
-      .on('scroll wheel touchmove touchend', this.handleScroll);
+      .on('scroll wheel touchmove touchend', this.handleScroll_);
 };
 
+
+/** @return {boolean} Whether the container is configured for horizontal scrolling. */
 VirtualRepeatContainerController.prototype.isHorizontal = function() {
-  return !!$attrs.mdHorizontal;
+  return !!this.$attrs.mdHorizontal;
 };
 
+
+/** @return {number} The size (width or height) of the container. */
 VirtualRepeatContainerController.prototype.getSize = function() {
   return this.size;
 };
 
+
+/** Instructs the container to re-measure its size. */
+VirtualRepeatContainerController.prototype.updateSize = function() {
+  this.size = this.$attrs.mdHorizontal
+      ? this.$element[0].clientWidth
+      : this.$element[0].clientHeight;
+  this.repeater && this.repeater.containerUpdated();
+};
+
+
+/** @return {number} The container's scrollHeight or scrollWidth. */
 VirtualRepeatContainerController.prototype.getScrollSize = function() {
   return this.scrollSize;
 };
 
+
+/**
+ * Sets the scrollHeight or scrollWidth. Called by the repeater based on
+ * its item count and item size.
+ * @param {number} The new size.
+ */
 VirtualRepeatContainerController.prototype.setScrollSize = function(size) {
   if (this.scrollSize !== size) {
-    this.$window.requestAnimationFrame(function() {
-      this.sizer.style[this.$attrs.mdHorizontal ? 'width' : 'height'] = size + 'px';
-    }.bind(this));
-    this.scrollSize = size;
+    this.sizer.style[this.$attrs.mdHorizontal ? 'width' : 'height'] = size + 'px';
   }
 
   this.scrollSize = size;
 };
 
-VirtualRepeatContainerController.prototype.handleScroll = function(horizontal, evt) {
+
+/** @return {number} The container's current scroll offset. */
+VirtualRepeatContainerController.prototype.getScrollOffset = function() {
+  return this.scrollOffset;
+};
+
+
+VirtualRepeatContainerController.prototype.handleScroll_ = function(horizontal, evt) {
   var oldOffset = this.scrollOffset;
 
   this.scrollOffset = Math.min(this.scrollSize - this.size,
@@ -98,10 +149,33 @@ VirtualRepeatContainerController.prototype.handleScroll = function(horizontal, e
   if (oldOffset !== this.scrollOffset) this.repeater.containerUpdated();
 };
 
-VirtualRepeatContainerController.prototype.getScrollOffset = function() {
-  return this.scrollOffset;
-};
 
+/**
+ * @ngdoc directive
+ * @name mdVirtualRepeat
+ * @module material.components.virtualRepeat
+ * @restrict A
+ * @description
+ * `md-virtual-repeat` specifies an element to repeat using virtual scrolling.
+ *
+ * Virtual repeat is a limited substitute for ng-repeat that allows renders only
+ * enough dom nodes to fill the container and recycling them as the user scrolls.
+ *
+ * @usage
+ * <hljs lang="html">
+ * <md-virtual-repeat-container md-horizonal>
+ *   <div md-virtual-repeat="i in items">Hello {{i}}!</div>
+ * </md-virtual-repeat-containr>
+ *
+ * <md-virtual-repeat-container md-horizonal>
+ *   <div md-virtual-repeat="i in items">Hello {{i}}!</div>
+ * </md-virtual-repeat-containr>
+ * </hljs>
+ *
+ * @param {number=} md-size The height or width of the repeated elements (which
+ *     must be identical for each element). TODO: If absent, the directive will attempt to
+ *     measure the computed style of the element at startup.
+ */
 function VirtualRepeatDirective($parse) {
   return {
     controller: VirtualRepeatController,
@@ -117,11 +191,12 @@ function VirtualRepeatDirective($parse) {
       var rhs = $parse(match[2]);
 
       return function VirtualRepeatLink($scope, $element, $attrs, ctrl, $transclude) {
-        ctrl[0].link(ctrl[1], $transclude, lhs, rhs);
+        ctrl[0].link_(ctrl[1], $transclude, lhs, rhs);
       };
     }
   };
 }
+
 
 function VirtualRepeatController($scope, $element, $attrs, $browser, $document) {
   this.$scope = $scope;
@@ -135,14 +210,25 @@ function VirtualRepeatController($scope, $element, $attrs, $browser, $document) 
   this.newEndIndex = 0;
   this.startIndex = 0;
   this.endIndex = 0;
-  // Possible TODO: measure height of first row from dom if not provided?
+  // TODO: measure width/height of first element from dom if not provided.
+  // getComputedStyle?
   this.itemSize = $scope.$eval($attrs.mdSize);
   this.blocks = {};
   this.pooledBlocks = [];
   this.numBlocks = 0;
 }
 
-VirtualRepeatController.prototype.link = function(container, transclude, lhs, rhs) {
+
+/**
+ * Called at startup by the md-virtual-repeat postLink function.
+ * @param {!VirtualRepeatContainerController} The container's controller.
+ * @param {!Function} The repeated element's bound transclude function.
+ * @param {string} lhs The left hand side of the repeat expression, indicating
+ *     the name for each item in the array.
+ * @param {!Function} rhs A compiled expression based on the right hand side
+ *     of the repeat expression. Points to the array to repeat over.
+ */
+VirtualRepeatController.prototype.link_ = function(container, transclude, lhs, rhs) {
   this.container = container;
   this.transclude = transclude;
   this.lhs = lhs;
@@ -152,12 +238,17 @@ VirtualRepeatController.prototype.link = function(container, transclude, lhs, rh
   this.container.register(this);
 };
 
+
+/**
+ * Called by the container. Informs us that the containers scroll or size has
+ * changed.
+ */
 VirtualRepeatController.prototype.containerUpdated = function() {
   var NUM_EXTRA = 3;
 
   if (!this.sized) {
     this.sized = true;
-    this.$scope.$watchCollection(this.rhs, this.virtualRepeatUpdate.bind(this));
+    this.$scope.$watchCollection(this.rhs, this.virtualRepeatUpdate_.bind(this));
     this.items = this.rhs(this.$scope);
   }
 
@@ -172,11 +263,12 @@ VirtualRepeatController.prototype.containerUpdated = function() {
   if (this.newStartIndex !== this.startIndex ||
       this.newEndIndex !== this.endIndex ||
       this.container.getScrollOffset() > this.container.getScrollSize()) {
-    this.virtualRepeatUpdate(this.items, this.items);
+    this.virtualRepeatUpdate_(this.items, this.items);
   }
 };
 
-VirtualRepeatController.prototype.virtualRepeatUpdate = function(items, oldItems) {
+
+VirtualRepeatController.prototype.virtualRepeatUpdate_ = function(items, oldItems) {
   this.items = items;
   this.parentNode = null;
 
@@ -186,7 +278,7 @@ VirtualRepeatController.prototype.virtualRepeatUpdate = function(items, oldItems
   Object.keys(this.blocks).forEach(function(blockIndex) {
     var index = parseInt(blockIndex);
     if (index < this.newStartIndex || index > this.newEndIndex) {
-      this.poolBlock(index);
+      this.poolBlock_(index);
     }
   }, this);
 
@@ -200,8 +292,8 @@ VirtualRepeatController.prototype.virtualRepeatUpdate = function(items, oldItems
   for (var i = this.newStartIndex; i < this.newEndIndex; i++) {
     if (this.blocks[i]) continue;
 
-    block = this.getBlock();
-    this.updateBlock(block, i);
+    block = this.getBlock_();
+    this.updateBlock_(block, i);
     newStartBlocks.push(block);
   }
 
@@ -218,7 +310,8 @@ VirtualRepeatController.prototype.virtualRepeatUpdate = function(items, oldItems
   this.endIndex = this.newEndIndex;
 };
 
-VirtualRepeatController.prototype.getBlock = function() {
+
+VirtualRepeatController.prototype.getBlock_ = function() {
   if (this.pooledBlocks.length) {
     return this.pooledBlocks.pop();
   }
@@ -237,23 +330,23 @@ VirtualRepeatController.prototype.getBlock = function() {
   return block;
 };
 
-VirtualRepeatController.prototype.updateBlock = function(block, index) {
+
+VirtualRepeatController.prototype.updateBlock_ = function(block, index) {
+  // Update and digest the block's scope.
   block.scope.$index = index;
   block.scope[this.lhs] = this.items[index];
   this.blocks[index] = block;
   block.scope.$digest();
 
-  // TODO: translateX when horizontal.
-  var transform = 'translateY(' + ((index - block.index) * this.itemSize) + 'px)';
+  // Position the element based on its new $index.
+  var transform = (this.container.isHorizontal() ? 'translateX(' : 'translateY(')
+      + ((index - block.index) * this.itemSize) + 'px)';
   block.element[0].style.webkitTransform = transform;
   block.element[0].style.transform = transform;
 };
 
-VirtualRepeatController.prototype.poolBlock = function(index) {
+
+VirtualRepeatController.prototype.poolBlock_ = function(index) {
   this.pooledBlocks.push(this.blocks[index]);
   delete this.blocks[index];
-};
-
-VirtualRepeatController.prototype.getSize = function() {
-  return this.itemSize;
 };
