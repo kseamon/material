@@ -60,4 +60,5 @@ $virtual-repeat-scrollbar-width: 16px;
   left: 0;
   position: absolute;
   right: 0;
+  will-change: transform;
 }

@@ -107,23 +107,39 @@ VirtualRepeatContainerController.prototype.setScrollSize = function(size) {
   this.scrollSize = size;
 };
 
-VirtualRepeatContainerController.prototype.handleScroll = function(horizontal) {
+VirtualRepeatContainerController.prototype.handleScroll = function(horizontal, evt) {
   var NUM_EXTRA = 3;
-  var transform;
+  // var transform;
   var oldOffset = this.scrollOffset;
 
-  if (horizontal) {
-    this.scrollOffset = this.scroller.scrollLeft;
-    transform = 'translateX(';
-  } else {
-    this.scrollOffset = this.scroller.scrollTop;
-    transform = 'translateY(';
+  // TODO: calculate delta for touchmove?
+  // TODO: This does not work in FF mac (momentum-triggered events have wrong delta)
+  // Possible way to detect: a scroll event gets past skip... 2 wheels later and we're out of sync
+  // console.log(evt.type, this.skipNextScroll);
+  if (evt.type === 'wheel' && evt.deltaX < this.size && evt.deltaY < this.size) {
+    this.skipNextScroll = true;
+  } else if (this.skipNextScroll && evt.type === 'scroll') {
+    this.skipNextScroll = false;
+    return;
   }
 
+  if (horizontal) {
+    this.scrollOffset = evt.type !== 'wheel'
+        ? this.scroller.scrollLeft
+        : this.scrollOffset + evt.deltaX;
+    // transform = 'translateX(';
+  } else {
+    this.scrollOffset = evt.type !== 'wheel'
+        ? this.scroller.scrollTop
+        : this.scrollOffset + evt.deltaY;
+    // transform = 'translateY(';
+  }
+  // console.log(evt.deltaY, this.scrollOffset, this.scroller.scrollTop + evt.deltaY);
+  this.scrollOffset = Math.min(this.scrollSize - this.size, Math.max(0, this.scrollOffset));
   if (oldOffset === this.scrollOffset) return;
 
-  var itemSize = this.repeater.getSize();
-  transform += (Math.max(0, this.scrollOffset - itemSize * NUM_EXTRA) - this.scrollOffset % itemSize) + 'px)';
+  // var itemSize = this.repeater.getSize();
+  // transform += (Math.max(0, this.scrollOffset - itemSize * NUM_EXTRA) - this.scrollOffset % itemSize) + 'px)';
   // this.offsetter.style.webkitTransform = transform;
   // this.offsetter.style.transform = transform;
 
@@ -254,6 +270,11 @@ VirtualRepeatController.prototype.virtualRepeatUpdate = function(items, oldItems
 //     this.parentNode.appendChild(this.domFragmentFromBlocks(newEndBlocks));
 //   }
 
+  this.pooledBlocks.forEach(function(block) {
+    block.element[0].style.webkitTransform = 'translateY(-1000px)';
+    block.element[0].style.transform = 'translateY(-1000px)';
+  });
+
   this.startIndex = this.newStartIndex;
   this.endIndex = this.newEndIndex;
 };
@@ -293,8 +314,8 @@ VirtualRepeatController.prototype.updateBlock = function(block, index) {
 VirtualRepeatController.prototype.poolBlock = function(index) {
   this.pooledBlocks.push(this.blocks[index]);
   // this.parentNode.removeChild(this.blocks[index].element[0]);
-  this.blocks[index].element[0].style.webkitTransform = 'translateY(-1000px)';
-  this.blocks[index].element[0].style.transform = 'translateY(-1000px)';
+  // this.blocks[index].element[0].style.webkitTransform = 'translateY(-1000px)';
+  // this.blocks[index].element[0].style.transform = 'translateY(-1000px)';
   delete this.blocks[index];
 };
 
