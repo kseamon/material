@@ -323,6 +323,7 @@ VirtualRepeatController.prototype.getBlock_ = function() {
       scope: scope,
       index: this.numBlocks++
     };
+
     this.parentNode = this.parentNode || this.$element[0].parentNode;
     this.parentNode.appendChild(clone[0]);
   }.bind(this));
