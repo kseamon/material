@@ -48,13 +48,13 @@ $select-max-visible-options: 5;
 
 md-input-container > md-select {
   margin: 0;
-  margin-top: 1.4em;
+  margin-top: 3px;
 }
 
 md-select {
   display: inline-block;
-  margin-top: 1.5em;
-  margin-bottom: 1.625em;
+  margin-top: 0.35em;
+  margin-bottom: 0.80em;
   margin-left: 2px;
   margin-right: 2px;
   &:focus {
@@ -69,14 +69,14 @@ md-select {
     }
     &.ng-invalid.ng-dirty {
       .md-select-label {
-        padding-bottom: 7px;
         border-bottom: 2px solid;
+        padding-bottom: $baseline-grid - 5
       }
     }
     &:focus {
       .md-select-label {
         border-bottom: 2px solid;
-        padding-bottom: $baseline-grid + 1;
+        padding-bottom: $baseline-grid - 5;
       }
     }
   }
@@ -86,17 +86,20 @@ md-select {
 .md-select-label {
   display: flex;
   align-items: center;
-  padding-top: $baseline-grid - 1;
-  padding-bottom: $baseline-grid + 2;
+  padding-left: 3px;
+  padding-top: (2 * $baseline-grid) + 4;
+  padding-bottom: $baseline-grid - 4;
   border-bottom: 1px solid;
-  font-size: 1.6rem;
-  line-height: 0.8em;
   position: relative;
   box-sizing: border-box;
   min-width: 8 * $baseline-grid;
 
   *:first-child {
     flex: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    max-width: calc(100% - 2*#{$baseline-grid});
   }
 
   .md-select-icon {
@@ -132,6 +135,7 @@ md-select-menu {
 
   box-shadow: $whiteframe-shadow-z1;
   max-height: ($select-option-height * $select-max-visible-options) + 2 * $baseline-grid;
+  min-height: $select-option-height;
   overflow-y: hidden;
 
   @include rtl(transform-origin, left top, right top);
@@ -140,6 +144,7 @@ md-select-menu {
 
   md-content {
     min-width: 136px;
+    min-height: $select-option-height;
     max-height: ($select-option-height * $select-max-visible-options) + 2 * $baseline-grid;
     overflow-y: auto;
   }
@@ -164,7 +169,7 @@ md-option {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 1.6rem;
+    font-size: rem(1.6);
   }
   padding: 0 $select-option-padding 0 $select-option-padding;
   height: $select-option-height;
@@ -174,7 +179,7 @@ md-optgroup {
   display: block;
   label {
     display: block;
-    font-size: 1.6rem;
+    font-size: rem(1.6);
     text-transform: uppercase;
     padding: $baseline-grid * 2 $baseline-grid;
   }

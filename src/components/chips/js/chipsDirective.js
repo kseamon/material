@@ -129,9 +129,10 @@ var CHIP_REMOVE_TEMPLATE = '\
         class="md-chip-remove"\
         ng-if="!$mdChipsCtrl.readonly"\
         ng-click="$mdChipsCtrl.removeChipAndFocusInput($$replacedScope.$index)"\
+        type="button"\
         aria-hidden="true"\
         tabindex="-1">\
-      <md-icon md-svg-icon="close"></md-icon>\
+      <md-icon md-svg-icon="md-close"></md-icon>\
       <span class="md-visually-hidden">\
         {{$mdChipsCtrl.deleteButtonLabel}}\
       </span>\
@@ -140,7 +141,7 @@ var CHIP_REMOVE_TEMPLATE = '\
 /**
  * MDChips Directive Definition
  */
-function MdChips ($mdTheming, $mdUtil, $compile, $timeout) {
+function MdChips ($mdTheming, $mdUtil, $compile, $log, $timeout) {
   return {
     template: function(element, attrs) {
       // Clone the element into an attribute. By prepending the attribute
@@ -202,12 +203,17 @@ function MdChips ($mdTheming, $mdUtil, $compile, $timeout) {
 
     // Set the chip remove, chip contents and chip input templates. The link function will put
     // them on the scope for transclusion later.
-    var chipRemoveTemplate   = getTemplateByQuery('[md-chip-remove]') || CHIP_REMOVE_TEMPLATE,
-        chipContentsTemplate = getTemplateByQuery('md-chip-template') || CHIP_DEFAULT_TEMPLATE,
-        chipInputTemplate    = getTemplateByQuery('md-autocomplete')
-            || getTemplateByQuery('input')
+    var chipRemoveTemplate   = getTemplateByQuery('md-chips>*[md-chip-remove]') || CHIP_REMOVE_TEMPLATE,
+        chipContentsTemplate = getTemplateByQuery('md-chips>md-chip-template') || CHIP_DEFAULT_TEMPLATE,
+        chipInputTemplate    = getTemplateByQuery('md-chips>md-autocomplete')
+            || getTemplateByQuery('md-chips>input')
             || CHIP_INPUT_TEMPLATE,
         staticChips = userTemplate.find('md-chip');
+
+    // Warn of malformed template. See #2545
+    if (userTemplate[0].querySelector('md-chip-template>*[md-chip-remove]')) {
+      $log.warn('invalid placement of md-chip-remove within md-chip-template.');
+    }
 
     function getTemplateByQuery (query) {
       if (!attr.ngModel) return;

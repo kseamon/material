@@ -11,8 +11,10 @@
 
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=RobotoDraft:300,400,500,700,400italic">
 
+<script src="angular-material.js"></script>
 <script src="docs.js"></script>
 <script src="docs-demo-scripts.js"></script>
+<link rel="stylesheet" href="angular-material.css">
 <link rel="stylesheet" href="docs.css">
 </head>
 <body layout="row">
@@ -21,10 +23,10 @@
               md-component-id="left"
               md-is-locked-open="$mdMedia('gt-sm')">
 
-    <md-toolbar>
+    <md-toolbar class="md-whiteframe-glow-z2">
       <h1 class="md-toolbar-tools">
         <a ng-href="#/" layout="row" flex class="docs-logo">
-          <md-icon md-svg-src="menu"></md-icon>
+          <md-icon md-svg-src="md-menu"></md-icon>
           <div class="docs-logotype">Material Design</div>
         </a>
       </h1>
@@ -59,7 +61,7 @@
   </md-sidenav>
 
   <div layout="column" tabIndex="-1" role="main" flex>
-    <md-toolbar>
+    <md-toolbar class="md-whiteframe-glow-z2">
 
       <div class="md-toolbar-tools docs-toolbar-tools" ng-click="openMenu()" tabIndex="-1">
         <md-button class="md-icon-button" hide-gt-sm aria-label="Toggle Menu">

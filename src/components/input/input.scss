@@ -2,7 +2,7 @@ $input-container-padding: 2px !default;
 
 $input-label-default-offset: 24px !default;
 $input-label-default-scale: 1.0 !default;
-$input-label-float-offset: 4px !default;
+$input-label-float-offset: 6px !default;
 $input-label-float-scale: 0.75 !default;
 
 $input-placeholder-offset: $input-label-default-offset !default;
@@ -25,7 +25,6 @@ md-input-container {
   position: relative;
   flex-direction: column;
 
-  overflow-x: hidden;
   padding: $input-container-padding;
   padding-bottom: $input-container-padding + $input-error-height;
 
@@ -57,6 +56,13 @@ md-input-container {
     -moz-appearance: none;
     -webkit-appearance: none;
   }
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="month"],
+  input[type="time"],
+  input[type="week"] {
+    min-height: $input-line-height;
+  }
   textarea {
     resize: none;
     overflow: hidden;
@@ -67,6 +73,11 @@ md-input-container {
     -ms-flex-preferred-size: auto; //IE fix
   }
 
+  label {
+    position: relative;
+    top: -2px;
+  }
+
 
   label:not(.md-no-float),
   .md-placeholder:not(.md-select-label) {
@@ -75,7 +86,7 @@ md-input-container {
     -webkit-font-smoothing: antialiased;
     padding-left: $input-container-padding;
     z-index: 1;
-    transform: translate3d(0, $input-label-default-offset, 0) scale($input-label-default-scale);
+    transform: translate3d(0, $input-label-default-offset + 6, 0) scale($input-label-default-scale);
     transition: transform $swift-ease-out-timing-function 0.25s;
 
     @include rtl(transform-origin, left top, right top);
@@ -141,6 +152,10 @@ md-input-container {
     position: absolute;
     font-size: $input-error-font-size;
     line-height: $input-error-height;
+
+    &:not(.md-char-counter) {
+      padding-right: rem(3);
+    }
 
     &.ng-enter {
       transition: $swift-ease-out;

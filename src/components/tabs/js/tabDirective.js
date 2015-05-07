@@ -81,11 +81,20 @@ function MdTab () {
           label:    getLabel()
         }, index);
 
+    scope.select   = scope.select   || angular.noop;
     scope.deselect = scope.deselect || angular.noop;
-    scope.select = scope.select || angular.noop;
 
     scope.$watch('active', function (active) { if (active) ctrl.select(data.getIndex()); });
     scope.$watch('disabled', function () { ctrl.refreshIndex(); });
+    scope.$watch(
+        function () {
+          return Array.prototype.indexOf.call(tabs, element[0]);
+        },
+        function (newIndex) {
+          data.index = newIndex;
+          ctrl.updateTabOrder();
+        }
+    );
     scope.$on('$destroy', function () { ctrl.removeTab(data); });
 
     function getLabel () {

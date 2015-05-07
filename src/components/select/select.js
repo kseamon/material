@@ -43,9 +43,11 @@ angular.module('material.components.select', [
  * @param {expression} ng-model The model!
  * @param {boolean=} multiple Whether it's multiple.
  * @param {string=} placeholder Placeholder hint text.
+ * @param {string=} aria-label Optional label for accessibility. Only necessary if no placeholder or
+ * explicit label is present.
  *
  * @usage
- * With a placeholder (label is added dynamically)
+ * With a placeholder (label and aria-label are added dynamically)
  * <hljs lang="html">
  *   <md-select
  *     ng-model="someModel"
@@ -63,10 +65,7 @@ angular.module('material.components.select', [
  *   </md-select>
  * </hljs>
  */
-function SelectDirective($mdSelect, $mdUtil, $mdTheming, $interpolate, $compile, $parse) {
-  var intStart = $interpolate.startSymbol();
-  var intEnd = $interpolate.endSymbol();
-
+function SelectDirective($mdSelect, $mdUtil, $mdTheming, $mdAria, $interpolate, $compile, $parse) {
   return {
     restrict: 'E',
     require: ['mdSelect', 'ngModel', '?^form'],
@@ -138,8 +137,6 @@ function SelectDirective($mdSelect, $mdUtil, $mdTheming, $interpolate, $compile,
 
     attr.tabindex = attr.tabindex || '0';
 
-    $mdTheming(element);
-
     return function postLink(scope, element, attr, ctrls) {
       var isOpen;
       var isDisabled;
@@ -153,6 +150,8 @@ function SelectDirective($mdSelect, $mdUtil, $mdTheming, $interpolate, $compile,
       var selectContainer, selectScope, selectMenuCtrl;
       createSelect();
 
+      $mdTheming(element);
+
       if (attr.name && formCtrl) {
         var selectEl = element.parent()[0].querySelector('select[name=".' + attr.name + '"]')
         formCtrl.$removeControl(angular.element(selectEl).controller());
@@ -164,40 +163,30 @@ function SelectDirective($mdSelect, $mdUtil, $mdTheming, $interpolate, $compile,
         syncLabelText();
       };
 
-      var lineHeight;
       mdSelectCtrl.setLabelText = function(text) {
         if (customLabel) return; // Assume that user is handling it on their own
         mdSelectCtrl.setIsPlaceholder(!text);
-        var newText = text || attr.placeholder || '';
+        text = text || attr.placeholder || '';
         var target = customLabel ? labelEl : labelEl.children().eq(0);
-
-        if (!lineHeight) {
-          target.text('M');
-          lineHeight = target[0].offsetHeight;
-        }
-
-        var doneShrinking = false;
-        var didShrink = false;
-        do {
-          target.text(newText);
-          if (target[0].offsetHeight > lineHeight) {
-            newText = newText.slice(0, -1);
-            didShrink = true;
-          } else {
-            if (didShrink == true) {
-              newText = newText.slice(0, -3) + '...';
-              target.text(newText);
-            }
-            doneShrinking = true;
-          }
-        } while (!doneShrinking);
+        target.text(text);
       };
 
       mdSelectCtrl.setIsPlaceholder = function(val) {
         val ? labelEl.addClass('md-placeholder') : labelEl.removeClass('md-placeholder');
       };
 
-      scope.$$postDigest(syncLabelText);
+      scope.$$postDigest(function() {
+        setAriaLabel();
+        syncLabelText();
+      });
+
+      function setAriaLabel() {
+        var labelText = element.attr('placeholder');
+        if (!labelText) {
+          labelText = element.find('md-select-label').text();
+        }
+        $mdAria.expect(element, 'aria-label', labelText);
+      }
 
       function syncLabelText() {
         if (selectContainer) {
@@ -258,8 +247,7 @@ function SelectDirective($mdSelect, $mdUtil, $mdTheming, $interpolate, $compile,
       element.attr({
         'role': 'combobox',
         'id': 'select_' + $mdUtil.nextUid(),
-        'aria-expanded': 'false',
-        'aria-labelledby': labelEl.attr('id')
+        'aria-expanded': 'false'
       });
 
       scope.$on('$destroy', function() {
@@ -397,6 +385,10 @@ function SelectMenuDirective($parse, $mdUtil, $mdTheming) {
     // options is an object with keys matching every option's hash value,
     // and values matching every option's controller.
     self.options = {};
+
+    $scope.$watch(function() { return self.options; }, function() {
+      self.ngModel.$render();
+    }, true);
 
     var deregisterCollectionWatch;
     self.setMultiple = function(isMultiple) {
@@ -587,7 +579,7 @@ function OptionDirective($mdInkRipple, $mdUtil) {
     } else if (angular.isDefined(attr.value)) {
       setOptionValue(attr.value);
     } else {
-      scope.$watch(function() { return element.text(); }, setOptionValue)
+      scope.$watch(function() { return element.text(); }, setOptionValue);
     }
 
     scope.$$postDigest(function() {
@@ -760,7 +752,6 @@ function SelectProvider($$interimElementProvider) {
       return $mdUtil.transitionEndPromise(opts.selectEl, {timeout: 350});
 
       function configureAria() {
-        opts.selectEl.attr('aria-labelledby', opts.target.attr('id'));
         opts.target.attr('aria-expanded', 'true');
       }
 
@@ -883,7 +874,7 @@ function SelectProvider($$interimElementProvider) {
 
     function animateSelect(scope, element, opts) {
       var containerNode = element[0],
-          targetNode = opts.target[0],
+          targetNode = opts.target[0].firstElementChild.firstElementChild, // target the first span, functioning as the label
           parentNode = opts.parent[0],
           selectNode = opts.selectEl[0],
           contentNode = opts.contentEl[0],
@@ -979,8 +970,9 @@ function SelectProvider($$interimElementProvider) {
         }
       } else {
         left = targetRect.left + centeredRect.left - centeredRect.paddingLeft;
-        top = targetRect.top + targetRect.height / 2 - centeredRect.height / 2 -
-          centeredRect.top + contentNode.scrollTop;
+        top = Math.floor(targetRect.top + targetRect.height / 2 - centeredRect.height / 2 -
+          centeredRect.top + contentNode.scrollTop);
+
 
         transformOrigin = (centeredRect.left + targetRect.width / 2) + 'px ' +
         (centeredRect.top + centeredRect.height / 2 - contentNode.scrollTop) + 'px 0px';

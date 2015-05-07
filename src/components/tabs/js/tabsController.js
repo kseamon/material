@@ -17,7 +17,7 @@ function MdTabsController ($scope, $element, $window, $timeout, $mdConstant, $md
   ctrl.offsetLeft = 0;
   ctrl.hasContent = false;
   ctrl.hasFocus = false;
-  ctrl.lastClick = false;
+  ctrl.lastClick = true;
 
   ctrl.redirectFocus = redirectFocus;
   ctrl.attachRipple = attachRipple;
@@ -36,6 +36,7 @@ function MdTabsController ($scope, $element, $window, $timeout, $mdConstant, $md
   ctrl.refreshIndex = refreshIndex;
   ctrl.incrementSelectedIndex = incrementSelectedIndex;
   ctrl.updateInkBarStyles = updateInkBarStyles;
+  ctrl.updateTabOrder = $mdUtil.debounce(updateTabOrder, 100);
 
   init();
 
@@ -90,6 +91,17 @@ function MdTabsController ($scope, $element, $window, $timeout, $mdConstant, $md
     ctrl.lastClick = false;
   }
 
+  function updateTabOrder () {
+    var selectedItem = ctrl.tabs[$scope.selectedIndex],
+        focusItem = ctrl.tabs[ctrl.focusIndex];
+    ctrl.tabs = ctrl.tabs.sort(function (a, b) {
+      return a.index - b.index;
+    });
+    $scope.selectedIndex = ctrl.tabs.indexOf(selectedItem);
+    ctrl.focusIndex = ctrl.tabs.indexOf(focusItem);
+    $timeout(updateInkBarStyles, 0, false);
+  }
+
   function incrementSelectedIndex (inc, focus) {
     var newIndex,
         index = focus ? ctrl.focusIndex : $scope.selectedIndex;
@@ -130,8 +142,8 @@ function MdTabsController ($scope, $element, $window, $timeout, $mdConstant, $md
 
   function handleWindowResize () {
     ctrl.lastSelectedIndex = $scope.selectedIndex;
-    updateInkBarStyles();
     ctrl.offsetLeft = fixOffset(ctrl.offsetLeft);
+    $timeout(updateInkBarStyles, 0, false);
   }
 
   function processQueue () {

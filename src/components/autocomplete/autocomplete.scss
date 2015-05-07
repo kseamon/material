@@ -1,3 +1,7 @@
+$autocomplete-option-height: 48px;
+$input-container-padding: 2px !default;
+$input-error-height: 24px !default;
+
 @keyframes md-autocomplete-list-out {
   0% {
     animation-timing-function: linear;
@@ -36,10 +40,14 @@ md-autocomplete {
   overflow: visible;
   min-width: 190px;
   &[md-floating-label] {
+    padding-bottom: $input-container-padding + $input-error-height;
     box-shadow: none;
     border-radius: 0;
     background: transparent;
     height: auto;
+    md-input-container {
+      padding-bottom: 0;
+    }
     md-autocomplete-wrap {
       height: auto;
     }
@@ -175,14 +183,13 @@ md-autocomplete {
   max-height: 41px * 5.5;
   z-index: $z-index-tooltip;
   li {
-    border-top: 1px solid #ddd;
-    padding: 0 15px;
-    line-height: 40px;
+    cursor: pointer;
     font-size: 14px;
     overflow: hidden;
-    height: 40px;
+    padding: 0 15px;
+    line-height: $autocomplete-option-height;
+    height: $autocomplete-option-height;
     transition: background 0.15s linear;
-    cursor: pointer;
     margin: 0;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -196,5 +203,10 @@ md-autocomplete {
       transition: none;
       animation: md-autocomplete-list-out 0.2s;
     }
+
+    &:focus {
+        outline: none;
+      }
+
   }
 }

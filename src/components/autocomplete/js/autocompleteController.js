@@ -132,6 +132,7 @@ function MdAutocompleteCtrl ($scope, $element, $mdUtil, $mdConstant, $timeout, $
       wrap:  $element.find('md-autocomplete-wrap')[0],
       root:  document.body
     };
+    elements.li = elements.ul.getElementsByTagName('li');
     elements.snap = getSnapTarget();
     elements.$ = getAngularElements(elements);
   }
@@ -190,8 +191,8 @@ function MdAutocompleteCtrl ($scope, $element, $mdUtil, $mdConstant, $timeout, $
 
   function handleSearchText (searchText, previousSearchText) {
     self.index = getDefaultIndex();
-    //-- do nothing on init if there is no initial value
-    if (!searchText && searchText === previousSearchText) return;
+    //-- do nothing on init
+    if (searchText === previousSearchText) return;
     //-- clear selected item if search text no longer matches it
     if (searchText !== getDisplayValue($scope.selectedItem)) $scope.selectedItem = null;
     else return;
@@ -239,8 +240,9 @@ function MdAutocompleteCtrl ($scope, $element, $mdUtil, $mdConstant, $timeout, $
         updateScroll();
         updateSelectionMessage();
         break;
+      case $mdConstant.KEY_CODE.TAB:
       case $mdConstant.KEY_CODE.ENTER:
-        if (self.hidden || self.loading || self.index < 0) return;
+        if (self.hidden || self.loading || self.index < 0 || self.matches.length < 1) return;
         event.preventDefault();
         select(self.index);
         break;
@@ -248,8 +250,6 @@ function MdAutocompleteCtrl ($scope, $element, $mdUtil, $mdConstant, $timeout, $
         self.matches = [];
         self.hidden = true;
         self.index = getDefaultIndex();
-        break;
-      case $mdConstant.KEY_CODE.TAB:
         break;
       default:
     }
@@ -323,9 +323,9 @@ function MdAutocompleteCtrl ($scope, $element, $mdUtil, $mdConstant, $timeout, $
     }
     function handleResults (matches) {
       cache[term] = matches;
+      self.loading = false;
       if (searchText !== $scope.searchText) return; //-- just cache the results if old request
       promise = null;
-      self.loading = false;
       self.matches = matches;
       self.hidden = shouldHide();
       updateMessages();
@@ -349,8 +349,9 @@ function MdAutocompleteCtrl ($scope, $element, $mdUtil, $mdConstant, $timeout, $
   }
 
   function updateScroll () {
-    var top = ITEM_HEIGHT * self.index,
-        bot = top + ITEM_HEIGHT,
+    var li  = elements.li[self.index],
+        top = li.offsetTop,
+        bot = top + li.offsetHeight,
         hgt = elements.ul.clientHeight;
     if (top < elements.ul.scrollTop) {
       elements.ul.scrollTop = top;

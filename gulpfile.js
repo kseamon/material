@@ -1,209 +1,11 @@
-
-/** Regular npm dependendencies */
-var _ = require('lodash');
-var argv = require('minimist')(process.argv.slice(2));
-var changelog = require('conventional-changelog');
-var fs = require('fs');
-var glob = require('glob').sync;
-var gulp = require('gulp');
-var karma = require('karma').server;
-var lazypipe = require('lazypipe');
-var path = require('path');
-var pkg = require('./package.json');
-var series = require('stream-series');
-var through2 = require('through2');
-
-/** Gulp dependencies */
-var autoprefixer = require('gulp-autoprefixer');
-var concat = require('gulp-concat');
-var filter = require('gulp-filter');
-var gulpif = require('gulp-if');
-var gutil = require('gulp-util');
-var insert = require('gulp-insert');
-var jshint = require('gulp-jshint');
-var minifyCss = require('gulp-minify-css');
-var ngAnnotate = require('gulp-ng-annotate');
-var plumber = require('gulp-plumber');
-var rename = require('gulp-rename');
-var sass = require('gulp-sass');
-var uglify = require('gulp-uglify');
-var webserver = require('gulp-webserver');
-
-/** Local dependencies */
-var buildConfig = require('./config/build.config');
-var utils = require('./scripts/gulp-utils.js');
-
-/** Arguments */
-var IS_RELEASE_BUILD = !!argv.release;
-var IS_DEMO_BUILD = (!!argv.module || !!argv.m || !!argv.c);
-var BUILD_MODE = argv.mode;
-var VERSION = argv.version || pkg.version;
-var SHA = argv.sha;
-
-/** Grab-bag of build configuration. */
-var config = {
-  banner:
-    '/*!\n' +
-    ' * Angular Material Design\n' +
-    ' * https://github.com/angular/material\n' +
-    ' * @license MIT\n' +
-    ' * v' + VERSION + '\n' +
-    ' */\n',
-  jsBaseFiles: [
-    'src/core/**/*.js',
-    '!src/core/**/*.spec.js'
-  ],
-  jsFiles: [
-    'src/**/*.js'
-  ],
-  themeBaseFiles: [
-    'src/core/style/variables.scss',
-    'src/core/style/mixins.scss'
-  ],
-  scssBaseFiles: [
-    'src/core/style/color-palette.scss',
-    'src/core/style/variables.scss',
-    'src/core/style/mixins.scss',
-    'src/core/style/structure.scss',
-    'src/core/style/typography.scss',
-    'src/core/style/layout.scss'
-  ],
-  scssStandaloneFiles: [
-    'src/core/style/layout.scss'
-  ],
-  paths: 'src/{components,services}/**',
-  outputDir: 'dist/'
-};
-
-var LR_PORT = argv.port || argv.p || 8080;
-
-var buildModes = {
-  'closure': {
-    transform: utils.addClosurePrefixes,
-    outputDir: path.join(config.outputDir, 'modules/closure') + path.sep,
-    useBower: false
-  },
-  'demos': {
-    transform: utils.addJsWrapper,
-    outputDir: path.join(config.outputDir, 'demos') + path.sep,
-    useBower: false
-  },
-  'default': {
-    transform: utils.addJsWrapper,
-    outputDir: path.join(config.outputDir, 'modules/js') + path.sep,
-    useBower: true
-  }
-};
-
-IS_DEMO_BUILD && (BUILD_MODE="demos");
-BUILD_MODE = buildModes[BUILD_MODE] || buildModes['default'];
-
+global.root = __dirname;
+require('./gulp/globals');
 
 if (IS_RELEASE_BUILD) {
-  console.log(
-    gutil.colors.red('--release:'),
-    'Building release version (minified)...'
-  );
+  console.log(gutil.colors.red('--release:'), 'Building release version (minified)...');
 }
 
 require('./docs/gulpfile')(gulp, IS_RELEASE_BUILD);
-
-
-
-gulp.task('default', ['build']);
-gulp.task('validate', ['jshint', 'karma']);
-gulp.task('changelog', function(done) {
-  var options = {
-    repository: 'https://github.com/angular/material',
-    version: VERSION,
-    file: 'CHANGELOG.md'
-  };
-  if (SHA) {
-    options.from = SHA;
-  }
-  changelog(options, function(err, log) {
-    fs.writeFileSync(__dirname + '/CHANGELOG.md', log);
-  });
-});
-gulp.task('jshint', function() {
-  return gulp.src(
-    config.jsFiles
-  )
-    .pipe(jshint('.jshintrc'))
-    .pipe(jshint.reporter(require('jshint-summary')({
-      fileColCol: ',bold',
-      positionCol: ',bold',
-      codeCol: 'green,bold',
-      reasonCol: 'cyan'
-    })))
-    .pipe(jshint.reporter('fail'));
-});
-
-
-/** *****************************************
- *
- * Tasks for Karma Test
- *
- ** ***************************************** */
-
-gulp.task('karma', function(done) {
-  var karmaConfig = {
-    singleRun: true,
-    autoWatch: false,
-    browsers : argv.browsers ? argv.browsers.trim().split(',') : ['Chrome'],
-    configFile: __dirname + '/config/karma.conf.js'
-  };
-
-  gutil.log('Running unit tests on unminified source.');
-  buildJs(true);
-  karma.start(karmaConfig, testMinified);
-
-  function testMinified() {
-    gutil.log('Running unit tests on minified source.');
-    process.env.KARMA_TEST_COMPRESSED = true;
-    karma.start(karmaConfig, testMinifiedJquery);
-  }
-
-  function testMinifiedJquery() {
-    gutil.log('Running unit tests on minified source w/ jquery.');
-    process.env.KARMA_TEST_COMPRESSED = true;
-    process.env.KARMA_TEST_JQUERY = true;
-    karma.start(karmaConfig, clearEnv);
-  }
-
-  function clearEnv() {
-    process.env.KARMA_TEST_COMPRESSED = undefined;
-    process.env.KARMA_TEST_JQUERY = undefined;
-    done();
-  }
-});
-
-gulp.task('karma-watch', function(done) {
-  karma.start({
-    singleRun:false,
-    autoWatch:true,
-    configFile: __dirname + '/config/karma.conf.js',
-    browsers : argv.browsers ? argv.browsers.trim().split(',') : ['Chrome']
-  },done);
-});
-
-gulp.task('karma-sauce', function(done) {
-  karma.start(require('./config/karma-sauce.conf.js'), done);
-});
-
-
-/** *****************************************
- *
- * Project-wide Build Tasks
- *
- ** ***************************************** */
-
-gulp.task('build', ['build-resources', 'build-scss', 'build-js']);
-
-gulp.task('build-resources', function() {
-  return gulp.src(['material-font/*'])
-    .pipe(gulp.dest(path.join(config.outputDir, 'material-font')));
-});
 
 gulp.task('build-all-modules', function() {
   return series(gulp.src(['src/components/*', 'src/core/'])
@@ -359,7 +161,7 @@ gulp.task('build-js-release', function() {
  * Builds the entire component library javascript.
  * @param {boolean} isRelease Whether to build in release mode.
  */
-function buildJs(isRelease) {
+global.buildJs = function buildJs(isRelease) {
   gutil.log("building js files...");
 
   var jsBuildStream = gulp.src(
@@ -367,12 +169,12 @@ function buildJs(isRelease) {
   )
     .pipe(filterNonCodeFiles())
     .pipe(utils.buildNgMaterialDefinition())
-    .pipe(insert.prepend(config.banner))
     .pipe(plumber())
     .pipe(ngAnnotate());
 
   return series(jsBuildStream, themeBuildStream())
     .pipe(concat('angular-material.js'))
+    .pipe(insert.prepend(config.banner))
     .pipe(gulp.dest(config.outputDir))
     .pipe(gulpif(isRelease, lazypipe()
       .pipe(uglify, { preserveComments: 'some' })
@@ -380,16 +182,16 @@ function buildJs(isRelease) {
       .pipe(gulp.dest, config.outputDir)
       ()
     ));
-}
+};
 
 // builds the theming related css and provides it as a JS const for angular
-function themeBuildStream() {
+global.themeBuildStream = function themeBuildStream() {
   return gulp.src( config.themeBaseFiles.concat(path.join(config.paths, '*-theme.scss')) )
     .pipe(concat('default-theme.scss'))
     .pipe(utils.hoistScssVariables())
     .pipe(sass())
     .pipe(utils.cssToNgConstant('material.core', '$MD_THEME_CSS'));
-}
+};
 
 
 /** *****************************************
@@ -452,60 +254,6 @@ gulp.task('build-module-demo', function() {
  *
  ** ***************************************** */
 
-gulp.task('build-scss', function() {
-  var modules   = argv['modules'],
-      overrides = argv['override'],
-      dest      = argv['output-dir'] || config.outputDir,
-      filename  = argv['filename'] || 'angular-material',
-      paths     = getPaths();
-
-  gutil.log("Building css files...");
-  var streams = [];
-  streams.push(
-    gulp.src(paths)
-      .pipe(filterNonCodeFiles())
-      .pipe(filter(['**', '!**/*-theme.scss'])) // remove once ported
-      .pipe(concat('angular-material.scss'))
-      // .pipe(insert.append(defaultThemeContents))
-      .pipe(sass())
-      .pipe(rename({ basename: filename }))
-      .pipe(autoprefix())
-      .pipe(insert.prepend(config.banner))
-      .pipe(gulp.dest(dest))
-      .pipe(gulpif(IS_RELEASE_BUILD, lazypipe()
-          .pipe(minifyCss)
-          .pipe(rename, {extname: '.min.css'})
-          .pipe(gulp.dest, dest)
-        ()
-      ))
-  );
-  if (IS_RELEASE_BUILD) {
-    var baseVars = fs.readFileSync('src/core/style/variables.scss', 'utf8').toString();
-    streams.push(
-      gulp.src(config.scssStandaloneFiles)
-        .pipe(insert.prepend(baseVars))
-        .pipe(sass())
-        .pipe(autoprefix())
-        .pipe(insert.prepend(config.banner))
-        .pipe(rename({prefix: 'angular-material-'}))
-        .pipe(gulp.dest(path.join(dest, 'modules', 'css')))
-    );
-  }
-  return series(streams);
-  function getPaths () {
-    var paths = config.scssBaseFiles.slice();
-    if (modules) {
-      paths.push.apply(paths, modules.split(',').map(function (module) {
-        return 'src/components/' + module + '/*.scss';
-      }));
-    } else {
-      paths.push(path.join(config.paths, '*.scss'));
-    }
-    overrides && paths.unshift(overrides);
-    console.log(paths);
-    return paths;
-  }
-});
 
 /** *****************************************
  *
@@ -526,14 +274,29 @@ function readModuleArg() {
   return module;
 }
 
-function filterNonCodeFiles() {
+global.filterNonCodeFiles = function filterNonCodeFiles() {
   return filter(function(file) {
     return !/demo|module\.json|\.spec.js|README/.test(file.path);
   });
-}
+};
 
-function autoprefix() {
+global.autoprefix = function autoprefix() {
   return autoprefixer({browsers: [
     'last 2 versions', 'last 4 Android versions'
   ]});
-}
+};
+
+//-- read in all files from gulp/tasks and create tasks for them
+fs.readdirSync('./gulp/tasks')
+    .filter(function (filename) {
+      return filename.match(/\.js$/i);
+    })
+    .map(function (filename) {
+      return {
+        name: filename.substr(0, filename.length - 3),
+        contents: require('./gulp/tasks/' + filename)
+      };
+    })
+    .filter(function (file) {
+      gulp.task(file.name, file.contents.dependencies, file.contents.task);
+    });
