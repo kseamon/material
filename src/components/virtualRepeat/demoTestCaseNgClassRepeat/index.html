@@ -1,0 +1,22 @@
+<div ng-controller="AppCtrl as ctrl" ng-cloak>
+  <md-content>
+    <md-content>
+      <div class="column" ng-repeat="col in ctrl.cols"
+          ng-init="colIndex = $index; isLast = $last">
+        <md-virtual-repeat-container class="vertical-container">
+          <div md-virtual-repeat="item in col.items"
+              class="repeated-item" flex
+              ng-class="{
+                selected: item == col.chosenItem,
+                mostRecent: colIndex == ctrl.cols.length - 2
+              }">
+            <a href="javascript:void(0)" ng-click="ctrl.openCol(col, item)">
+              {{item}}
+            </a>
+          </div>
+        </md-virtual-repeat-container>
+      </div>
+    </md-content>
+  </md-content>
+
+</div>

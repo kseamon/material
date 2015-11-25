@@ -1,0 +1,38 @@
+.vertical-container {
+  height: 292px;
+  width: 150px;
+}
+
+.column {
+  height: 292px;
+  width: 150px;
+  display: inline-block;
+}
+
+.repeated-item {
+  border-bottom: 1px solid #ddd;
+  box-sizing: border-box;
+  height: 40px;
+  padding-top: 10px;
+}
+
+.selected {
+  background-color: lightgrey;
+}
+
+.selected.mostRecent {
+  background-color: lightblue;
+}
+
+md-content {
+  margin: 16px;
+  height: 100%;
+}
+
+md-virtual-repeat-container {
+  border: solid 1px grey;
+}
+
+.md-virtual-repeat-container .md-virtual-repeat-offsetter {
+  padding-left: 16px;
+}
