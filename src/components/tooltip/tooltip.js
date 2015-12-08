@@ -59,7 +59,8 @@ function MdTooltipDirective($timeout, $window, $$rAF, $document, $mdUtil, $mdThe
     var parent        = $mdUtil.getParentWithPointerEvents(element),
         content       = angular.element(element[0].getElementsByClassName('md-content')[0]),
         tooltipParent = angular.element(document.body),
-        debouncedOnResize = $$rAF.throttle(function () { updatePosition(); });
+        debouncedOnResize = $$rAF.throttle(function () { updatePosition(); }),
+        ignoreScroll  = false;
 
     if ($animate.pin) $animate.pin(element, parent);
 
@@ -146,17 +147,18 @@ function MdTooltipDirective($timeout, $window, $$rAF, $document, $mdUtil, $mdThe
       };
       var elementFocusedOnWindowBlur = false;
 
-      function windowScrollHandler() {
+      function windowScrollHandler(evt) {
+        if (ignoreScroll) return;
         setVisible(false);
       }
       
       ngWindow.on('blur', windowBlurHandler);
       ngWindow.on('resize', debouncedOnResize);
-      document.addEventListener('scroll', windowScrollHandler, true);
+      window.addEventListener('scroll', windowScrollHandler, true);
       scope.$on('$destroy', function() {
         ngWindow.off('blur', windowBlurHandler);
         ngWindow.off('resize', debouncedOnResize);
-        document.removeEventListener('scroll', windowScrollHandler, true);
+        window.removeEventListener('scroll', windowScrollHandler, true);
         attributeObserver && attributeObserver.disconnect();
       });
 
@@ -237,9 +239,13 @@ function MdTooltipDirective($timeout, $window, $$rAF, $document, $mdUtil, $mdThe
 
     function updatePosition() {
       if ( !scope.visible ) return;
-
       updateContentOrigin();
       positionTooltip();
+
+      ignoreScroll = true;
+      $mdUtil.nextTick(function() {
+        ignoreScroll = false;
+      }, false);
     }
 
     function positionTooltip() {
